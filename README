@@ -1,0 +1,17 @@
+************************************************
+****          ViennaUtils Readme            ****
+************************************************
+
+TODO: create Readme
+
+Table of Contents
+------------------
+1. Requirements
+
+
+1. Requirements
+-----------------
+ViennaUtils requires
+ - a not too dated C++ compiler (e.g. gcc 4.x.x),
+ - the C++ Standard Template Library,
+
