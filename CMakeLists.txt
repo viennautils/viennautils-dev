@@ -1,23 +1,22 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
+include (cmake/vienna_build_common.cmake NO_POLICY_SCOPE)
 
-project(viennautils)
+vienna_build_setup_project(viennautils)
 
-try_compile(HAS_VARIADIC_MACRO_SUPPORT
-  ${CMAKE_BINARY_DIR}
-  $ENV{VIENNAUTILSPATH}/cmake/test_need_variadics.cpp
-)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
+set(VERSION_PATCH 0)
+set(VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-if (HAS_VARIADIC_MACRO_SUPPORT)
-  add_definitions(-DBOOST_PP_VARIADICS=1)
+if (VIENNA_BUILD_IS_MAIN_PROJECT)
+  option(BUILD_EXAMPLES "Build example programs" OFF)
+endif ()
+
+file(GLOB_RECURSE DFISE_SRC src/viennautils/dfise/*.cpp)
+add_library(viennautils_dfise ${DFISE_SRC})
+
+if (VIENNA_BUILD_IS_MAIN_PROJECT AND BUILD_EXAMPLES)
+  add_subdirectory(examples)
 else ()
-  message(FATAL_ERROR "ViennaUtils needs support for variadic macros, enable them or update your (ancient) compiler")
-endif()
-
-# libraries in override take precedence over system libraries
-include_directories(BEFORE $ENV{VIENNAUTILSPATH}/override)
-include_directories($ENV{VIENNAUTILSPATH}/include)
-
-file(GLOB_RECURSE VIENNAUTILS_DFISE_SRC src/viennautils/dfise/*.cpp)
-add_library(viennautils_dfise ${VIENNAUTILS_DFISE_SRC})
-
-add_subdirectory(examples)
+  add_subdirectory(examples EXCLUDE_FROM_ALL)
+endif ()
