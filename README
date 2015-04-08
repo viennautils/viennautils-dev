@@ -21,9 +21,12 @@ ViennaUtils requires
 The boost directory contains several header only parts of the boost library. It originates from boost 1.57. I downloaded the boost package and used the bcp tool to extract the desired libraries:
 
 ~/boost_1_57_0/mkdir viennautils_subset
-~/boost_1_57_0/bcp boost/function.hpp boost/bind.hpp boost/ref.hpp boost/lexical_cast boost/any.hpp boost/type_traits.hpp boost/unordered_map.hpp boost/unordered_set.hpp boost/iterator.hpp boost/limits.hpp boost/utility.hpp boost/array.hpp boost/container/flat_map.hpp boost/container/flat_set.hpp boost/optional.hpp boost/variant.hpp boost/static_assert.hpp boost/mpl boost/lambda boost/tuple viennautils_subset
+~/boost_1_57_0/bcp boost/function.hpp boost/bind.hpp boost/ref.hpp boost/lexical_cast boost/any.hpp boost/type_traits.hpp boost/unordered_map.hpp boost/unordered_set.hpp boost/iterator.hpp boost/limits.hpp boost/utility.hpp boost/array.hpp boost/container/flat_map.hpp boost/container/flat_set.hpp boost/optional.hpp boost/variant.hpp boost/static_assert.hpp boost/mpl boost/lambda boost/tuple boost/smart_ptr boost/algorithm/string.hpp viennautils_subset
 
 to verify that the libraries you extracted were all header only, use:
 ~/boost_1_57_0/find viennautils_subset -type f  | grep -v .hpp
 
 it will list all files that aren't directories or .hpp files
+
+smart_ptr will actually "require" two .cpp files when using the define BOOST_SP_ENABLE_DEBUG_HOOKS, namely: sp_collector.cpp and sp_debug_hooks.cpp. Sadly you can't set defines in the bcp tool so that it ignores these dependencies. ViennaUtils assumes that you will only use the header only part of boost, hence you can't use BOOST_SP_ENABLE_DEBUG_HOOKS (if you do, you'll get linker errors).
+
