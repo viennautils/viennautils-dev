@@ -46,7 +46,7 @@ public:
   //actually it is the vertex coordinate vector
   VertexVector const & get_vertices() const {return vertices_;}
   ElementVector const & get_elements() const {return elements_;}
-  RegionMap const& get_regions() const {return regions_;}
+  RegionMap const & get_regions() const {return regions_;}
   std::vector<double> get_transform() const {return trans_matrix_;}
   std::vector<double> get_translate() const {return trans_move_;}
 
@@ -58,6 +58,7 @@ private:
   };
 
   typedef boost::array<VertexIndex, 2> Edge;
+  typedef std::vector<Edge> EdgeVector;
 
   void parse_additional_info(primary_reader & preader);
   void parse_data_block(primary_reader & preader);
@@ -69,10 +70,14 @@ private:
   void parse_region_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::string const & para);
   void parse_region_element_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::vector<ElementIndex>::size_type const & para);
 
-  VertexIndex get_oriented_edge_vertex(int edge_index, unsigned int vertex_index);
+  void read_vertex_index(primary_reader & preader, VertexIndex & index);
+  //edge indices can be signed indicating the orientation of the edge
+  void read_edge_index(primary_reader & preader, int & index);
+
+  VertexIndex get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index);
 
   GridInfo grid_info_;
-  std::vector<Edge> edges_;
+  EdgeVector edges_;
 
   unsigned int dimension_;
   VertexVector vertices_;

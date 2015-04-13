@@ -20,8 +20,6 @@ grid_reader::grid_reader(std::string const & filename)
                         , boost::bind(&grid_reader::parse_data_block, this, _1)
                         );
   
-  dimension_ = preader.get_mandatory_info().dimension_;
-  
   edges_.clear();
 }
 
@@ -33,6 +31,9 @@ void grid_reader::parse_additional_info(primary_reader & preader)
                                        + " - grid_reader parses " + enum_pp::to_string(primary_reader::filetype::grid) + "  files only"
                                        );
   }
+  
+  dimension_ = preader.get_mandatory_info().dimension_;
+  
   preader.read_array("regions", grid_info_.regions_);
   preader.read_array("materials", grid_info_.materials_);
 }
@@ -81,8 +82,8 @@ void grid_reader::parse_edges_block(primary_reader & preader, unsigned int const
   edges_.resize(preader.get_mandatory_info().nb_edges_);
   for(std::vector<Edge>::size_type i = 0; i < edges_.size(); ++i)
   {
-    preader.read_value(edges_[i][0]);
-    preader.read_value(edges_[i][1]);
+    read_vertex_index(preader, edges_[i][0]);
+    read_vertex_index(preader, edges_[i][1]);
   }
 }
 
@@ -124,8 +125,8 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
       {
         //line given by two vertices
         elements_[i].vertex_indices_.resize(2);
-        preader.read_value(elements_[i].vertex_indices_[0]);
-        preader.read_value(elements_[i].vertex_indices_[1]);
+        read_vertex_index(preader, elements_[i].vertex_indices_[0]);
+        read_vertex_index(preader, elements_[i].vertex_indices_[1]);
         break;
       }
       case element_tag::triangle:
@@ -134,16 +135,16 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         int edge_index;
         
         //first edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 0));
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 1));
         
         //second edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 1));
         
         //ignore third edge - we already have all 3 vertices
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         break;
       }
       case element_tag::quadrilateral:
@@ -152,20 +153,20 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         int edge_index;
         
         //first edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 0));
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 1));
         
         //ignore second edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         
         //thrid edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 0));
         elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 1));
         
         //ignore last edge
-        preader.read_value(edge_index);
+        read_edge_index(preader, edge_index);
         break;
       }
       //all possible enum values have to be implemented! warning should alert to missing enum values
@@ -180,16 +181,23 @@ void grid_reader::parse_region_block(primary_reader & preader, std::vector<std::
   {
     throw make_exception<parsing_error>("unexpected region name: " + para + " - expected name: " + region_name);
   }
-
-  std::string material;
-  preader.read_attribute("material", material);
-  if (material != grid_info_.materials_[region_index])
-  {
-    throw make_exception<parsing_error>("material parameter of region: " + region_name + " does not match Info block");
-  }
-  regions_[region_name].material_ = grid_info_.materials_[region_index];
   
-  preader.read_block<std::vector<ElementIndex>::size_type>("Elements", boost::bind(&grid_reader::parse_region_element_block, this, boost::ref(preader), region_index, _1));
+  try
+  {
+    std::string material;
+    preader.read_attribute("material", material);
+    if (material != grid_info_.materials_[region_index])
+    {
+      throw make_exception<parsing_error>("material parameter does not match Info block");
+    }
+    regions_[region_name].material_ = grid_info_.materials_[region_index];
+
+    preader.read_block<std::vector<ElementIndex>::size_type>("Elements", boost::bind(&grid_reader::parse_region_element_block, this, boost::ref(preader), region_index, _1));
+  }
+  catch (parsing_error const & e)
+  {
+    throw make_exception<parsing_error>("while parsing region: " + region_name + " - " + e.what());
+  }
 }
 
 void grid_reader::parse_region_element_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::vector<ElementIndex>::size_type const & para)
@@ -199,12 +207,42 @@ void grid_reader::parse_region_element_block(primary_reader & preader, std::vect
   for (std::vector<ElementIndex>::size_type i = 0; i < region_elements.size(); ++i)
   {
     preader.read_value(region_elements[i]);
+    if (region_elements[i] >= elements_.size())
+    {
+      throw make_exception<parsing_error>("element index out of bounds: " + boost::lexical_cast<std::string>(region_elements[i])
+                                         + " max: " + boost::lexical_cast<std::string>(elements_.size()-1)
+                                         );
+    }
   }
 }
 
-grid_reader::VertexIndex grid_reader::get_oriented_edge_vertex(int edge_index, unsigned int vertex_index)
+void grid_reader::read_vertex_index(primary_reader & preader, VertexIndex & index)
 {
-  std::vector<Edge>::size_type actual_edge_index;
+  preader.read_value(index);
+  if (index >= vertices_.size()/dimension_)
+  {
+    throw make_exception<parsing_error>("vertex index out of bounds: " + boost::lexical_cast<std::string>(index)
+                                       + " max: " + boost::lexical_cast<std::string>(vertices_.size()/dimension_-1)
+                                       );
+  }
+}
+
+void grid_reader::read_edge_index(primary_reader & preader, int & index)
+{
+  preader.read_value(index);
+  EdgeVector::size_type actual_edge_index = (index < 0 ? -index-1 : index);
+  if (actual_edge_index >= edges_.size())
+  {
+    throw make_exception<parsing_error>("edge index out of bounds: " + boost::lexical_cast<std::string>(index)
+                                       + " turns into actual edge index of: " + boost::lexical_cast<std::string>(actual_edge_index)
+                                       + " max: " + boost::lexical_cast<std::string>(edges_.size()-1)
+                                       );
+  }
+}
+
+grid_reader::VertexIndex grid_reader::get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index)
+{
+  EdgeVector::size_type actual_edge_index;
   if (edge_index < 0)
   {
     actual_edge_index = -edge_index-1; //so -1 -> 0, -2 -> 1 etc.

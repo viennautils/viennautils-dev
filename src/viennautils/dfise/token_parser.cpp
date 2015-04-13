@@ -119,11 +119,12 @@ std::string const & token_parser::get_next()
 
 void token_parser::expect(std::string const & expected, std::string const & error_msg)
 {
-    if(get_next() != expected)
-    {
-      throw make_exception<parsing_error>(error_msg);
-    }
+  std::string const & next = get_next();
+  if(next != expected)
+  {
+    throw make_exception<parsing_error>(error_msg + " expected: " + expected + " got: " + next);
   }
+}
 
 } //end of namespace dfise
 
