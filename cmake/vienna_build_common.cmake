@@ -22,7 +22,6 @@ endmacro ()
 function (vienna_build_detail_include_prerequisites_and_globals SUB_PROJECT)
   #the scope provided by the function prevents subsequent variable changes from becoming permanent
   vienna_build_detail_prepare_subproject_variables(${SUB_PROJECT})
-  message("about to load globals for project ${SUB_PROJECT} - file dir: ${PROJECT_SOURCE_DIR}/cmake/prerequisites_and_globals.cmake")
   include(${PROJECT_SOURCE_DIR}/cmake/prerequisites_and_globals.cmake OPTIONAL)
 endfunction ()
 
