@@ -3,6 +3,7 @@
 #include <boost/ref.hpp>
 #include <boost/bind.hpp>
 
+#include "viennautils/filesystem/filesystem.hpp"
 #include "viennautils/dfise/parsing_error.hpp"
 #include "viennautils/dfise/primary_reader.hpp"
 
@@ -65,20 +66,20 @@ data_reader::data_reader( grid_reader const & greader
   }
 }
 
-void data_reader::read(std::string const & filename, PartialDatasetMap & partial_datasets, CompleteDatasetMap & complete_datasets)
+void data_reader::read(std::string const & filepath)
 {
-  DatasetList datasets;
-  
   try
   {
-    primary_reader preader( filename
+    //start by reading all datasets in the file using the primary_reader
+    DatasetList datasets;
+    primary_reader preader( filepath
                           , boost::bind(&data_reader::parse_additional_info, this, _1, boost::ref(datasets))
                           , boost::bind(&data_reader::parse_data_block, this, _1, boost::ref(datasets))
                           );
     
     while (!datasets.empty())
     {
-      std::string dataset_name = datasets.begin()->name_;
+      std::string const & dataset_name = datasets.begin()->name_;
       try
       {
         std::vector<DatasetList::iterator> subset;
@@ -101,18 +102,19 @@ void data_reader::read(std::string const & filename, PartialDatasetMap & partial
               }
               if (total_validities.find(*region_it) != total_validities.end())
               {
-                throw make_exception<parsing_error>("region: " + *region_it + " is specified in more than one validity array");
+                throw make_exception<parsing_error>("region: " + *region_it + " is specified in more than one validity array in a single file for a single dataset");
               }
               total_validities.insert(*region_it);
             }
           }
         }
         
+        std::string unique_name = generate_unique_name(dataset_name, filepath);
         if (total_validities.size() == region_vertex_indices_.size())
         {
           //complete dataset
-          complete_datasets[dataset_name].first = dimension;
-          ValueVector & values = complete_datasets[dataset_name].second;
+          complete_datasets_[unique_name].first = dimension;
+          ValueVector & values = complete_datasets_[unique_name].second;
           if (subset.size() == 1)
           {
             //optimization for datasets that define all their values in one fell swoop
@@ -148,14 +150,14 @@ void data_reader::read(std::string const & filename, PartialDatasetMap & partial
         else
         {
           //partial dataset
-          partial_datasets[dataset_name].first = dimension;
+          partial_datasets_[unique_name].first = dimension;
           VertexIndexSet total_combined_indices;
           combine_region_indices(std::vector<std::string>(total_validities.begin(), total_validities.end()), total_combined_indices);
           
-          VertexIndexVector & vertex_indices = partial_datasets[dataset_name].second.first;
+          VertexIndexVector & vertex_indices = partial_datasets_[unique_name].second.first;
           vertex_indices.reserve(total_combined_indices.size());
           vertex_indices.insert(vertex_indices.begin(), total_combined_indices.begin(), total_combined_indices.end());
-          ValueVector & values = partial_datasets[dataset_name].second.second;
+          ValueVector & values = partial_datasets_[unique_name].second.second;
           
           values.resize(total_combined_indices.size()*dimension);
           for (std::vector<DatasetList::iterator>::iterator it = subset.begin(); it != subset.end(); ++it)
@@ -197,7 +199,7 @@ void data_reader::read(std::string const & filename, PartialDatasetMap & partial
   }
   catch(parsing_error const & e)
   {
-    throw make_exception<parsing_error>("while parsing file: " + filename + " - " + e.what());
+    throw make_exception<parsing_error>("while parsing file: " + filepath + " - " + e.what());
   }
 }
 
@@ -245,7 +247,6 @@ void data_reader::parse_data_block(primary_reader & preader, DatasetList & datas
   }
 }
 
-
 void data_reader::combine_region_indices(std::vector<std::string> const & validity, VertexIndexSet & combined_indices)
 {
   if (validity.size() == 1)
@@ -257,6 +258,38 @@ void data_reader::combine_region_indices(std::vector<std::string> const & validi
     for (std::vector<std::string>::const_iterator it = validity.begin(); it != validity.end(); ++it)
     {
       combined_indices.insert(region_vertex_indices_[*it].begin(), region_vertex_indices_[*it].end());
+    }
+  }
+}
+
+bool data_reader::is_unique(std::string const & dataset_name) const
+{
+  return (  (partial_datasets_.find(dataset_name) == partial_datasets_.end())
+         && (complete_datasets_.find(dataset_name) == complete_datasets_.end())
+         );
+}
+
+std::string data_reader::generate_unique_name(std::string const & dataset_name, std::string const & filepath) const
+{
+  if (is_unique(dataset_name))
+  {
+    return dataset_name;
+  }
+  
+  std::string file_stem = viennautils::filesystem::extract_stem(filepath);
+  
+  std::string dataset_stem_name = dataset_name + "_" + file_stem;
+  if (is_unique(dataset_stem_name))
+  {
+    return dataset_stem_name;
+  }
+  
+  for (unsigned int i = 2;; ++i)
+  {
+    std::string candidate = dataset_stem_name + "_" + boost::lexical_cast<std::string>(i);
+    if (is_unique(candidate))
+    {
+      return candidate;
     }
   }
 }
