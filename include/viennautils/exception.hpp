@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/utility/enable_if.hpp>
-#include <boost/iterator/iterator_concepts.hpp>
 
 namespace viennautils
 {
