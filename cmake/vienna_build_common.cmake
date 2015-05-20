@@ -5,7 +5,7 @@ cmake_policy(SET CMP0011 NEW)
 cmake_policy(SET CMP0013 NEW)
 cmake_policy(SET CMP0014 NEW)
 
-#this function sets various variables before actually calling the include/add_subdirective command
+#this function sets various variables before actually calling the include/add_subdirectory command
 #  some of the variables set here are automatic variables that either have to be emulated (for the include call)
 #  or that are not set according to specification (for example PROJECT_SOURCE_DIR should point to the directory that
 #  contains the "closest" CMakeLists.txt that has project() command in it - but this just not the case when we use
@@ -89,7 +89,7 @@ function (vienna_build_setup_project PNAME)
     set(VIENNA_BUILD_GLOBAL_DEFINES "" CACHE INTERNAL "")
     set(VIENNA_BUILD_GLOBAL_INCLUDES "" CACHE INTERNAL "")
     set(VIENNA_BUILD_GLOBAL_BEFORE_INCLUDES "" CACHE INTERNAL "")
-    
+
     #setup the VIENNA_BUILD_${SUB_PROJECT}_SOURCE_DIR variables
     foreach (SUB_PROJECT ${SUB_PROJECTS})
       string(TOUPPER ${SUB_PROJECT} SUB_PROJECT_UPPER)
