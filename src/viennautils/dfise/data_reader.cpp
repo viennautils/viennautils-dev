@@ -193,7 +193,7 @@ void data_reader::read(std::string const & filepath)
       }
       catch (parsing_error const & e)
       {
-        throw make_exception<parsing_error>("while unifying dataset: " + dataset_name + " - ");
+        throw make_exception<parsing_error>("while unifying dataset: " + dataset_name + " - " + e.what());
       }
     }
   }
