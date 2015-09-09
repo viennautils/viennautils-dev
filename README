@@ -30,3 +30,15 @@ it will list all files that aren't directories or .hpp files
 
 smart_ptr will actually "require" two .cpp files when using the define BOOST_SP_ENABLE_DEBUG_HOOKS, namely: sp_collector.cpp and sp_debug_hooks.cpp. Sadly you can't set defines in the bcp tool so that it ignores these dependencies. ViennaUtils assumes that you will only use the header only part of boost, hence you can't use BOOST_SP_ENABLE_DEBUG_HOOKS (if you do, you'll get linker errors).
 
+In order to avoid warnings concerning the (non-standard) long long datatype the BOOST_NO_LONG_LONG define is set by the build system and override/boost/config.hpp is changed so that it undefines BOOST_HAS_LONG_LONG after the compiler-config is included (which defines BOOST_HAS_LONG_LONG in case of GCC) i.e. after:
+// if we have a compiler config, include it now:
+#ifdef BOOST_COMPILER_CONFIG
+#  include BOOST_COMPILER_CONFIG
+#endif
+
+we add the three lines:
+
+#ifdef BOOST_NO_LONG_LONG
+#  undef BOOST_HAS_LONG_LONG
+#endif
+
