@@ -25,10 +25,10 @@ grid_reader::grid_reader(std::string const & filename)
 
 void grid_reader::parse_additional_info(primary_reader & preader)
 {
-  if(preader.get_mandatory_info().type_ != primary_reader::filetype::grid)
+  if(preader.get_mandatory_info().type_ != primary_reader::filetype_grid)
   {
-    throw make_exception<parsing_error>( "invalid file type: " + enum_pp::to_string(preader.get_mandatory_info().type_)
-                                       + " - grid_reader parses " + enum_pp::to_string(primary_reader::filetype::grid) + "  files only"
+    throw make_exception<parsing_error>( "invalid file type: " + boost::lexical_cast<std::string>(preader.get_mandatory_info().type_)
+                                       + " - grid_reader parses grid files only"
                                        );
   }
   
@@ -113,15 +113,18 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
   {
     unsigned int tag_value;
     preader.read_value(tag_value);
-    if (!enum_pp::is_valid<element_tag::type>(tag_value))
+    if (  tag_value != element_tag_line
+       && tag_value != element_tag_triangle
+       && tag_value != element_tag_quadrilateral
+       ) //TODO this used to be handled with enum_pp::is_valid (which sadly requires C99 and was thus kicked out)
     {
       throw viennautils::make_exception<parsing_error>("encountered unsupported element tag value: " + boost::lexical_cast<std::string>(tag_value));
     }
     
-    elements_[i].tag_ = static_cast<element_tag::type>(tag_value);
+    elements_[i].tag_ = static_cast<element_tag>(tag_value);
     switch (elements_[i].tag_)
     {
-      case element_tag::line:
+      case element_tag_line:
       {
         //line given by two vertices
         elements_[i].vertex_indices_.resize(2);
@@ -129,7 +132,7 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         read_vertex_index(preader, elements_[i].vertex_indices_[1]);
         break;
       }
-      case element_tag::triangle:
+      case element_tag_triangle:
       {
         //triangle given by 3 edge indices (negative indices invert orientation!)
         int edge_index;
@@ -147,7 +150,7 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         read_edge_index(preader, edge_index);
         break;
       }
-      case element_tag::quadrilateral:
+      case element_tag_quadrilateral:
       {
         //rectangle given by 4 edge indices (again, negative indicies invert orientation)
         int edge_index;

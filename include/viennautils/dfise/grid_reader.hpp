@@ -7,8 +7,6 @@
 
 #include <boost/array.hpp>
 
-#include "viennautils/enum_pp.hpp"
-
 namespace viennautils
 {
 namespace dfise
@@ -22,11 +20,16 @@ public:
   typedef std::vector<double> VertexVector;
   typedef VertexVector::size_type VertexIndex;
 
-  VIENNAUTILS_ENUM_PP(element_tag, (line,1),(triangle,2),(quadrilateral,3));
+  enum element_tag
+  {
+    element_tag_line = 1,
+    element_tag_triangle = 2,
+    element_tag_quadrilateral = 3
+  };
 
   struct element
   {
-    element_tag::type tag_;
+    element_tag tag_;
     std::vector<VertexIndex> vertex_indices_;
   };
 

@@ -32,7 +32,24 @@ void primary_reader::read_block(std::string const & name, boost::function<void (
 void primary_reader::parse_info_block(ParsingFunc const & additional_info_parsing_func)
 {
   read_attribute("version",     mandatory_info_.version_);
-  read_attribute("type",        mandatory_info_.type_);
+  
+  { //TODO this used to use enum_pp (which was sadly kicked because of its C99 dependency)
+    std::string tmp; 
+    read_attribute("type",        tmp);
+    if (tmp == "grid")
+    {
+      mandatory_info_.type_ = filetype_grid;
+    }
+    else if (tmp == "dataset")
+    {
+      mandatory_info_.type_ = filetype_dataset;
+    }
+    else
+    {
+      throw make_exception<parsing_error>("encountered unsupported filetype: " + tmp);
+    }
+  }
+  
   read_attribute("dimension",   mandatory_info_.dimension_);
   read_attribute("nb_vertices", mandatory_info_.nb_vertices_);
   read_attribute("nb_edges",    mandatory_info_.nb_edges_);

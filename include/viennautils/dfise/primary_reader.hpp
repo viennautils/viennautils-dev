@@ -6,15 +6,13 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/type_traits/is_enum.hpp>
 #include <boost/type_traits/is_same.hpp>
-#include <boost/mpl/or.hpp>
 #include <boost/utility/enable_if.hpp>
 
-#include "viennautils/enum_pp.hpp"
 #include "viennautils/dfise/parsing_error.hpp"
 #include "viennautils/dfise/token_parser.hpp"
 
+struct T;
 namespace viennautils
 {
 namespace dfise
@@ -35,12 +33,16 @@ class primary_reader
 public:
   typedef boost::function<void (primary_reader &)> ParsingFunc;
 
-  VIENNAUTILS_ENUM_PP(filetype, (grid),(dataset));
+  enum filetype
+  {
+    filetype_grid,
+    filetype_dataset
+  };
 
   struct mandatory_info
   {
     std::string version_;
-    filetype::type type_;
+    filetype     type_;
     unsigned int dimension_;
     unsigned int nb_vertices_;
     unsigned int nb_edges_;
@@ -82,13 +84,10 @@ private:
   token_parser tp_;
 
   template <typename T>
-  static typename boost::disable_if<boost::mpl::or_<boost::is_enum<T>, boost::is_same<T, std::string> >, T>::type convert_to(std::string const & str);
+  static typename boost::disable_if<boost::is_same<T, std::string>, T>::type convert_to(std::string const & str);
 
   template <typename T>
   static typename boost::enable_if<boost::is_same<T, std::string>, std::string>::type convert_to(std::string const & str);
-
-  template <typename T>
-  static typename boost::enable_if<boost::is_enum<T>, T>::type convert_to(std::string const & str);
 };
 
 //------------------------------------------------------------------------------------------------
@@ -162,7 +161,7 @@ void primary_reader::read_block(std::string const & name, boost::function<void (
 }
 
 template <typename T>
-typename boost::disable_if<boost::mpl::or_<boost::is_enum<T>, boost::is_same<T, std::string> >, T>::type primary_reader::convert_to(std::string const & str)
+typename boost::disable_if<boost::is_same<T, std::string>, T>::type primary_reader::convert_to(std::string const & str)
 {
   try
   {
@@ -194,19 +193,6 @@ typename boost::enable_if<boost::is_same<T, std::string>, std::string>::type pri
     return tmp;
   }
   return str;
-}
-
-template <typename T>
-typename boost::enable_if<boost::is_enum<T>, T>::type primary_reader::convert_to(std::string const & str)
-{
-  try
-  {
-    return viennautils::enum_pp::from_string<T>(str);
-  }
-  catch (boost::bad_lexical_cast const &)
-  {
-    throw make_exception<parsing_error>("could not convert " + str + " to expected type");
-  }
 }
 
 } //end of namespace dfise

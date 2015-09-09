@@ -205,10 +205,10 @@ void data_reader::read(std::string const & filepath)
 
 void data_reader::parse_additional_info(primary_reader & preader, DatasetList & datasets)
 {
-  if(preader.get_mandatory_info().type_ != primary_reader::filetype::dataset)
+  if(preader.get_mandatory_info().type_ != primary_reader::filetype_dataset)
   {
-    throw make_exception<parsing_error>( "invalid file type: " + enum_pp::to_string(preader.get_mandatory_info().type_)
-                                       + " - grid_reader parses " + enum_pp::to_string(primary_reader::filetype::grid) + "  files only"
+    throw make_exception<parsing_error>( "invalid file type: " + boost::lexical_cast<std::string>(preader.get_mandatory_info().type_)
+                                       + " - grid_reader parses dataset files only"
                                        );
   }
   

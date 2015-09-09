@@ -38,6 +38,9 @@
 #ifdef BOOST_COMPILER_CONFIG
 #  include BOOST_COMPILER_CONFIG
 #endif
+#ifdef BOOST_NO_LONG_LONG
+#  undef BOOST_HAS_LONG_LONG
+#endif
 
 // if we don't have a std library config set, try and find one:
 #if !defined(BOOST_STDLIB_CONFIG) && !defined(BOOST_NO_STDLIB_CONFIG) && !defined(BOOST_NO_CONFIG) && defined(__cplusplus)
