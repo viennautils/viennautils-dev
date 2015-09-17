@@ -208,7 +208,7 @@ void data_reader::parse_additional_info(primary_reader & preader, DatasetList & 
   if(preader.get_mandatory_info().type_ != primary_reader::filetype_dataset)
   {
     throw make_exception<parsing_error>( "invalid file type: " + boost::lexical_cast<std::string>(preader.get_mandatory_info().type_)
-                                       + " - grid_reader parses dataset files only"
+                                       + " - data_reader parses dataset files only"
                                        );
   }
   

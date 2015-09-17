@@ -24,7 +24,8 @@ public:
   {
     element_tag_line = 1,
     element_tag_triangle = 2,
-    element_tag_quadrilateral = 3
+    element_tag_quadrilateral = 3,
+    element_tag_tetrahedron = 5
   };
 
   struct element
@@ -62,12 +63,16 @@ private:
 
   typedef boost::array<VertexIndex, 2> Edge;
   typedef std::vector<Edge> EdgeVector;
-
+  typedef EdgeVector::size_type EdgeIndex;
+  typedef boost::array<int, 3> Face;
+  typedef std::vector<Face> FaceVector;
+  
   void parse_additional_info(primary_reader & preader);
   void parse_data_block(primary_reader & preader);
   void parse_coord_system_block(primary_reader & preader);
   void parse_vertices_block(primary_reader & preader, unsigned int const & para);
   void parse_edges_block(primary_reader & preader, unsigned int const & para);
+  void parse_faces_block(primary_reader & preader, unsigned int const & para);
   void parse_locations_block(primary_reader & preader, unsigned int const & para);
   void parse_elements_block(primary_reader & preader, unsigned int const & para);
   void parse_region_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::string const & para);
@@ -76,11 +81,15 @@ private:
   void read_vertex_index(primary_reader & preader, VertexIndex & index);
   //edge indices can be signed indicating the orientation of the edge
   void read_edge_index(primary_reader & preader, int & index);
+  //face indices can be signed indicating the orientation of the face
+  void read_face_index(primary_reader & preader, int & index);
 
   VertexIndex get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index);
+  VertexIndex get_oriented_face_vertex(int face_index, EdgeIndex edge_index, Edge::size_type vertex_index);
 
   GridInfo grid_info_;
   EdgeVector edges_;
+  FaceVector faces_;
 
   unsigned int dimension_;
   VertexVector vertices_;

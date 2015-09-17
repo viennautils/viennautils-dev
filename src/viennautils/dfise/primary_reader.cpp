@@ -35,7 +35,7 @@ void primary_reader::parse_info_block(ParsingFunc const & additional_info_parsin
   
   { //TODO this used to use enum_pp (which was sadly kicked because of its C99 dependency)
     std::string tmp; 
-    read_attribute("type",        tmp);
+    read_attribute("type", tmp);
     if (tmp == "grid")
     {
       mandatory_info_.type_ = filetype_grid;

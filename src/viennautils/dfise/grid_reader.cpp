@@ -43,6 +43,7 @@ void grid_reader::parse_data_block(primary_reader & preader)
   preader.read_block("CoordSystem", boost::bind(&grid_reader::parse_coord_system_block, this, boost::ref(preader)));
   preader.read_block<unsigned int>("Vertices",  boost::bind(&grid_reader::parse_vertices_block, this, boost::ref(preader), _1));
   preader.read_block<unsigned int>("Edges",     boost::bind(&grid_reader::parse_edges_block, this, boost::ref(preader), _1));
+  preader.read_block<unsigned int>("Faces",     boost::bind(&grid_reader::parse_faces_block, this, boost::ref(preader), _1));
   preader.read_block<unsigned int>("Locations", boost::bind(&grid_reader::parse_locations_block, this, boost::ref(preader), _1));
   preader.read_block<unsigned int>("Elements",  boost::bind(&grid_reader::parse_elements_block, this, boost::ref(preader), _1));
   
@@ -87,15 +88,33 @@ void grid_reader::parse_edges_block(primary_reader & preader, unsigned int const
   }
 }
 
-void grid_reader::parse_locations_block(primary_reader & preader, unsigned int const & para)
+void grid_reader::parse_faces_block(primary_reader & preader, unsigned int const & para)
 {
-  if (para != preader.get_mandatory_info().nb_edges_)
+  if (para != preader.get_mandatory_info().nb_faces_)
   {
-    throw viennautils::make_exception<parsing_error>("number of edges in Info block and Locations block does not match");
+    throw viennautils::make_exception<parsing_error>("number of faces in Info block and Faces block does not match");
   }
   
+  faces_.resize(preader.get_mandatory_info().nb_faces_);
+  for(std::vector<Face>::size_type i = 0; i < faces_.size(); ++i)
+  {
+    int number_of_edges;
+    preader.read_value(number_of_edges);
+    if (number_of_edges != 3)
+    {
+      throw viennautils::make_exception<parsing_error>( "face with " + boost::lexical_cast<std::string>(number_of_edges) + " edges found"
+                                                      + ", however only triangular faces (with 3 edges) are supported right now");
+    }
+    read_edge_index(preader, faces_[i][0]);
+    read_edge_index(preader, faces_[i][1]);
+    read_edge_index(preader, faces_[i][2]);
+  }
+}
+
+void grid_reader::parse_locations_block(primary_reader & preader, unsigned int const & para)
+{
   std::string ignore;
-  for (unsigned int i = 0; i < preader.get_mandatory_info().nb_edges_; ++i)
+  for (unsigned int i = 0; i < para; ++i)
   {
     preader.read_value(ignore);
   }
@@ -116,6 +135,7 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
     if (  tag_value != element_tag_line
        && tag_value != element_tag_triangle
        && tag_value != element_tag_quadrilateral
+       && tag_value != element_tag_tetrahedron
        ) //TODO this used to be handled with enum_pp::is_valid (which sadly requires C99 and was thus kicked out)
     {
       throw viennautils::make_exception<parsing_error>("encountered unsupported element tag value: " + boost::lexical_cast<std::string>(tag_value));
@@ -172,6 +192,54 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         read_edge_index(preader, edge_index);
         break;
       }
+      case element_tag_tetrahedron:
+      {
+        int face_index;
+        //first face
+        read_face_index(preader, face_index);
+        elements_[i].vertex_indices_.push_back(get_oriented_face_vertex(face_index, 0, 0));
+        elements_[i].vertex_indices_.push_back(get_oriented_face_vertex(face_index, 0, 1));
+        elements_[i].vertex_indices_.push_back(get_oriented_face_vertex(face_index, 1, 1));
+        
+        //second face (find the last, missing vertex of the tetrahedron in the second face)
+        int face_index2;
+        read_face_index(preader, face_index2);
+        boost::array<VertexIndex,3> candidates;
+        candidates[0] = get_oriented_face_vertex(face_index2, 0, 0);
+        candidates[1] = get_oriented_face_vertex(face_index2, 0, 1);
+        candidates[2] = get_oriented_face_vertex(face_index2, 1, 1);
+        
+        VertexVector::size_type missing_vertex = 0;
+        for (;  missing_vertex < candidates.size() && (  candidates[missing_vertex] == elements_[i].vertex_indices_[0]
+                                                      || candidates[missing_vertex] == elements_[i].vertex_indices_[1]
+                                                      || candidates[missing_vertex] == elements_[i].vertex_indices_[2]
+                                                      )
+             ; ++missing_vertex
+            );
+        if (missing_vertex == candidates.size())
+        {
+          throw viennautils::make_exception<parsing_error>( "tetrahedron with element index " + boost::lexical_cast<std::string>(i)
+                                                          + " seems to have two equal faces"
+                                                          + "\nfirst face index: " + boost::lexical_cast<std::string>(face_index)
+                                                          + "\nsecond face index: " + boost::lexical_cast<std::string>(face_index2)
+                                                          + "\nvertex indices of first face:"
+                                                          + "\n" + boost::lexical_cast<std::string>(elements_[i].vertex_indices_[0])
+                                                          + "\n" + boost::lexical_cast<std::string>(elements_[i].vertex_indices_[1])
+                                                          + "\n" + boost::lexical_cast<std::string>(elements_[i].vertex_indices_[2])
+                                                          + "\nvertex indices of second face: "
+                                                          + "\n" + boost::lexical_cast<std::string>(candidates[0])
+                                                          + "\n" + boost::lexical_cast<std::string>(candidates[1])
+                                                          + "\n" + boost::lexical_cast<std::string>(candidates[2])
+                                                          );
+        }
+        
+        elements_[i].vertex_indices_.push_back(candidates[missing_vertex]);
+        
+        //ignore remaining two faces (we should have all the vertices we need)
+        read_face_index(preader, face_index);
+        read_face_index(preader, face_index);
+        break;
+      }
       //all possible enum values have to be implemented! warning should alert to missing enum values
     }
   }
@@ -224,7 +292,7 @@ void grid_reader::read_vertex_index(primary_reader & preader, VertexIndex & inde
   preader.read_value(index);
   if (index >= vertices_.size()/dimension_)
   {
-    throw make_exception<parsing_error>("vertex index out of bounds: " + boost::lexical_cast<std::string>(index)
+    throw make_exception<parsing_error>( "vertex index out of bounds: " + boost::lexical_cast<std::string>(index)
                                        + " max: " + boost::lexical_cast<std::string>(vertices_.size()/dimension_-1)
                                        );
   }
@@ -236,9 +304,22 @@ void grid_reader::read_edge_index(primary_reader & preader, int & index)
   EdgeVector::size_type actual_edge_index = (index < 0 ? -index-1 : index);
   if (actual_edge_index >= edges_.size())
   {
-    throw make_exception<parsing_error>("edge index out of bounds: " + boost::lexical_cast<std::string>(index)
+    throw make_exception<parsing_error>( "edge index out of bounds: " + boost::lexical_cast<std::string>(index)
                                        + " turns into actual edge index of: " + boost::lexical_cast<std::string>(actual_edge_index)
                                        + " max: " + boost::lexical_cast<std::string>(edges_.size()-1)
+                                       );
+  }
+}
+
+void grid_reader::read_face_index(primary_reader & preader, int & index)
+{
+  preader.read_value(index);
+  FaceVector::size_type actual_face_index = (index < 0 ? -index-1 : index);
+  if (actual_face_index >= faces_.size())
+  {
+    throw make_exception<parsing_error>( "face index out of bounds: " + boost::lexical_cast<std::string>(index)
+                                       + " turns into actual face index of: " + boost::lexical_cast<std::string>(actual_face_index)
+                                       + " max: " + boost::lexical_cast<std::string>(faces_.size()-1)
                                        );
   }
 }
@@ -255,6 +336,21 @@ grid_reader::VertexIndex grid_reader::get_oriented_edge_vertex(int edge_index, E
   {
     actual_edge_index = edge_index;
     return edges_[actual_edge_index][vertex_index];
+  }
+}
+
+grid_reader::VertexIndex grid_reader::get_oriented_face_vertex(int face_index, EdgeIndex edge_index, Edge::size_type vertex_index)
+{
+  FaceVector::size_type actual_face_index;
+  if (face_index < 0)
+  {
+    actual_face_index = -face_index-1;
+    return get_oriented_edge_vertex(-faces_[actual_face_index][faces_[actual_face_index].size()-edge_index]-1, vertex_index);
+  }
+  else
+  {
+    actual_face_index = face_index;
+    return get_oriented_edge_vertex(faces_[actual_face_index][edge_index], vertex_index);
   }
 }
 
