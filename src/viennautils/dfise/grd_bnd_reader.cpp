@@ -1,9 +1,11 @@
-#include "viennautils/dfise/grid_reader.hpp"
+#include "viennautils/dfise/grd_bnd_reader.hpp"
 
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/ref.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include "../../../include/viennautils/dfise/grd_bnd_reader.hpp"
 
 #include "viennautils/dfise/parsing_error.hpp"
 #include "viennautils/dfise/primary_reader.hpp"
@@ -13,53 +15,56 @@ namespace viennautils
 namespace dfise
 {
 
-grid_reader::grid_reader(std::string const & filename)
+grd_bnd_reader::grd_bnd_reader(std::string const & filename)
 {
   primary_reader preader( filename
-                        , boost::bind(&grid_reader::parse_additional_info, this, _1)
-                        , boost::bind(&grid_reader::parse_data_block, this, _1)
+                        , boost::bind(&grd_bnd_reader::parse_additional_info, this, _1)
+                        , boost::bind(&grd_bnd_reader::parse_data_block, this, _1)
                         );
   
   edges_.clear();
 }
 
-void grid_reader::parse_additional_info(primary_reader & preader)
+void grd_bnd_reader::parse_additional_info(primary_reader & preader)
 {
-  if(preader.get_mandatory_info().type_ != primary_reader::filetype_grid)
+  switch(preader.get_mandatory_info().type_)
   {
-    throw make_exception<parsing_error>( "invalid file type: " + boost::lexical_cast<std::string>(preader.get_mandatory_info().type_)
-                                       + " - grid_reader parses grid files only"
-                                       );
+    case primary_reader::filetype_grid:     filetype_ = filetype_grd; break;
+    case primary_reader::filetype_boundary: filetype_ = filetype_bnd; break;
+    default:
+      throw make_exception<parsing_error>( "invalid file type: " + boost::lexical_cast<std::string>(preader.get_mandatory_info().type_)
+                                         + " - grd_bnd_reader parses grid files only"
+                                         );
   }
   
   dimension_ = preader.get_mandatory_info().dimension_;
   
-  preader.read_array("regions", grid_info_.regions_);
-  preader.read_array("materials", grid_info_.materials_);
+  preader.read_array("regions", grd_bnd_info_.regions_);
+  preader.read_array("materials", grd_bnd_info_.materials_);
 }
 
-void grid_reader::parse_data_block(primary_reader & preader)
+void grd_bnd_reader::parse_data_block(primary_reader & preader)
 {
-  preader.read_block("CoordSystem", boost::bind(&grid_reader::parse_coord_system_block, this, boost::ref(preader)));
-  preader.read_block<unsigned int>("Vertices",  boost::bind(&grid_reader::parse_vertices_block, this, boost::ref(preader), _1));
-  preader.read_block<unsigned int>("Edges",     boost::bind(&grid_reader::parse_edges_block, this, boost::ref(preader), _1));
-  preader.read_block<unsigned int>("Faces",     boost::bind(&grid_reader::parse_faces_block, this, boost::ref(preader), _1));
-  preader.read_block<unsigned int>("Locations", boost::bind(&grid_reader::parse_locations_block, this, boost::ref(preader), _1));
-  preader.read_block<unsigned int>("Elements",  boost::bind(&grid_reader::parse_elements_block, this, boost::ref(preader), _1));
+  preader.read_block              ("CoordSystem", boost::bind(&grd_bnd_reader::parse_coord_system_block, this, boost::ref(preader)));
+  preader.read_block<unsigned int>("Vertices",    boost::bind(&grd_bnd_reader::parse_vertices_block,     this, boost::ref(preader), _1));
+  preader.read_block<unsigned int>("Edges",       boost::bind(&grd_bnd_reader::parse_edges_block,        this, boost::ref(preader), _1));
+  preader.read_block<unsigned int>("Faces",       boost::bind(&grd_bnd_reader::parse_faces_block,        this, boost::ref(preader), _1));
+  preader.read_block<unsigned int>("Locations",   boost::bind(&grd_bnd_reader::parse_locations_block,    this, boost::ref(preader), _1));
+  preader.read_block<unsigned int>("Elements",    boost::bind(&grd_bnd_reader::parse_elements_block,     this, boost::ref(preader), _1));
   
-  for (std::vector<std::string>::size_type i = 0; i < grid_info_.regions_.size(); ++i)
+  for (std::vector<std::string>::size_type i = 0; i < grd_bnd_info_.regions_.size(); ++i)
   {
-    preader.read_block<std::string>("Region",   boost::bind(&grid_reader::parse_region_block, this, boost::ref(preader), i, _1));
+    preader.read_block<std::string>("Region",     boost::bind(&grd_bnd_reader::parse_region_block,       this, boost::ref(preader), i, _1));
   }
 }
 
-void grid_reader::parse_coord_system_block(primary_reader & preader)
+void grd_bnd_reader::parse_coord_system_block(primary_reader & preader)
 {
   preader.read_array("translate", trans_move_, 3);
   preader.read_array("transform", trans_matrix_, 9);
 }
 
-void grid_reader::parse_vertices_block(primary_reader & preader, unsigned int const & para)
+void grd_bnd_reader::parse_vertices_block(primary_reader & preader, unsigned int const & para)
 {
   if (para != preader.get_mandatory_info().nb_vertices_)
   {
@@ -73,7 +78,7 @@ void grid_reader::parse_vertices_block(primary_reader & preader, unsigned int co
   }
 }
 
-void grid_reader::parse_edges_block(primary_reader & preader, unsigned int const & para)
+void grd_bnd_reader::parse_edges_block(primary_reader & preader, unsigned int const & para)
 {
   if (para != preader.get_mandatory_info().nb_edges_)
   {
@@ -88,7 +93,7 @@ void grid_reader::parse_edges_block(primary_reader & preader, unsigned int const
   }
 }
 
-void grid_reader::parse_faces_block(primary_reader & preader, unsigned int const & para)
+void grd_bnd_reader::parse_faces_block(primary_reader & preader, unsigned int const & para)
 {
   if (para != preader.get_mandatory_info().nb_faces_)
   {
@@ -111,7 +116,7 @@ void grid_reader::parse_faces_block(primary_reader & preader, unsigned int const
   }
 }
 
-void grid_reader::parse_locations_block(primary_reader & preader, unsigned int const & para)
+void grd_bnd_reader::parse_locations_block(primary_reader & preader, unsigned int const & para)
 {
   std::string ignore;
   for (unsigned int i = 0; i < para; ++i)
@@ -120,7 +125,7 @@ void grid_reader::parse_locations_block(primary_reader & preader, unsigned int c
   }
 }
 
-void grid_reader::parse_elements_block(primary_reader & preader, unsigned int const & para)
+void grd_bnd_reader::parse_elements_block(primary_reader & preader, unsigned int const & para)
 {
   if (para != preader.get_mandatory_info().nb_elements_)
   {
@@ -135,6 +140,7 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
     if (  tag_value != element_tag_line
        && tag_value != element_tag_triangle
        && tag_value != element_tag_quadrilateral
+       && tag_value != element_tag_polygon
        && tag_value != element_tag_tetrahedron
        ) //TODO this used to be handled with enum_pp::is_valid (which sadly requires C99 and was thus kicked out)
     {
@@ -192,6 +198,22 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
         read_edge_index(preader, edge_index);
         break;
       }
+      case element_tag_polygon:
+      {
+        //read number of edges
+        unsigned int number_of_edges;
+        preader.read_value(number_of_edges);
+        elements_[i].vertex_indices_.reserve(number_of_edges);
+        
+        for (unsigned int j = 0; j < number_of_edges; ++j)
+        {
+          //read one edge at a time and add the first vertex of the edge to the polygon
+          int edge_index;
+          read_edge_index(preader, edge_index);
+          elements_[i].vertex_indices_.push_back(get_oriented_edge_vertex(edge_index, 0));
+        }
+        break;
+      }
       case element_tag_tetrahedron:
       {
         int face_index;
@@ -245,9 +267,9 @@ void grid_reader::parse_elements_block(primary_reader & preader, unsigned int co
   }
 }
 
-void grid_reader::parse_region_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::string const & para)
+void grd_bnd_reader::parse_region_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::string const & para)
 {
-  std::string const & region_name = grid_info_.regions_[region_index];
+  std::string const & region_name = grd_bnd_info_.regions_[region_index];
   if (para != region_name)
   {
     throw make_exception<parsing_error>("unexpected region name: " + para + " - expected name: " + region_name);
@@ -257,13 +279,13 @@ void grid_reader::parse_region_block(primary_reader & preader, std::vector<std::
   {
     std::string material;
     preader.read_attribute("material", material);
-    if (material != grid_info_.materials_[region_index])
+    if (material != grd_bnd_info_.materials_[region_index])
     {
       throw make_exception<parsing_error>("material parameter does not match Info block");
     }
-    regions_[region_name].material_ = grid_info_.materials_[region_index];
+    regions_[region_name].material_ = grd_bnd_info_.materials_[region_index];
 
-    preader.read_block<std::vector<ElementIndex>::size_type>("Elements", boost::bind(&grid_reader::parse_region_element_block, this, boost::ref(preader), region_index, _1));
+    preader.read_block<std::vector<ElementIndex>::size_type>("Elements", boost::bind(&grd_bnd_reader::parse_region_element_block, this, boost::ref(preader), region_index, _1));
   }
   catch (parsing_error const & e)
   {
@@ -271,9 +293,9 @@ void grid_reader::parse_region_block(primary_reader & preader, std::vector<std::
   }
 }
 
-void grid_reader::parse_region_element_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::vector<ElementIndex>::size_type const & para)
+void grd_bnd_reader::parse_region_element_block(primary_reader & preader, std::vector<std::string>::size_type region_index, std::vector<ElementIndex>::size_type const & para)
 {
-  std::vector<ElementIndex>& region_elements = regions_[grid_info_.regions_[region_index]].element_indices_;
+  std::vector<ElementIndex>& region_elements = regions_[grd_bnd_info_.regions_[region_index]].element_indices_;
   region_elements.resize(para);
   for (std::vector<ElementIndex>::size_type i = 0; i < region_elements.size(); ++i)
   {
@@ -287,7 +309,7 @@ void grid_reader::parse_region_element_block(primary_reader & preader, std::vect
   }
 }
 
-void grid_reader::read_vertex_index(primary_reader & preader, VertexIndex & index)
+void grd_bnd_reader::read_vertex_index(primary_reader & preader, VertexIndex & index)
 {
   preader.read_value(index);
   if (index >= vertices_.size()/dimension_)
@@ -298,7 +320,7 @@ void grid_reader::read_vertex_index(primary_reader & preader, VertexIndex & inde
   }
 }
 
-void grid_reader::read_edge_index(primary_reader & preader, int & index)
+void grd_bnd_reader::read_edge_index(primary_reader & preader, int & index)
 {
   preader.read_value(index);
   EdgeVector::size_type actual_edge_index = (index < 0 ? -index-1 : index);
@@ -311,7 +333,7 @@ void grid_reader::read_edge_index(primary_reader & preader, int & index)
   }
 }
 
-void grid_reader::read_face_index(primary_reader & preader, int & index)
+void grd_bnd_reader::read_face_index(primary_reader & preader, int & index)
 {
   preader.read_value(index);
   FaceVector::size_type actual_face_index = (index < 0 ? -index-1 : index);
@@ -324,7 +346,7 @@ void grid_reader::read_face_index(primary_reader & preader, int & index)
   }
 }
 
-grid_reader::VertexIndex grid_reader::get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index)
+grd_bnd_reader::VertexIndex grd_bnd_reader::get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index)
 {
   EdgeVector::size_type actual_edge_index;
   if (edge_index < 0)
@@ -339,7 +361,7 @@ grid_reader::VertexIndex grid_reader::get_oriented_edge_vertex(int edge_index, E
   }
 }
 
-grid_reader::VertexIndex grid_reader::get_oriented_face_vertex(int face_index, EdgeIndex edge_index, Edge::size_type vertex_index)
+grd_bnd_reader::VertexIndex grd_bnd_reader::get_oriented_face_vertex(int face_index, EdgeIndex edge_index, Edge::size_type vertex_index)
 {
   FaceVector::size_type actual_face_index;
   if (face_index < 0)

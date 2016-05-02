@@ -36,7 +36,8 @@ public:
   enum filetype
   {
     filetype_grid,
-    filetype_dataset
+    filetype_dataset,
+    filetype_boundary
   };
 
   struct mandatory_info

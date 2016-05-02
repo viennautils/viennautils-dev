@@ -9,7 +9,7 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/container/flat_map.hpp>
 
-#include "viennautils/dfise/grid_reader.hpp"
+#include "viennautils/dfise/grd_bnd_reader.hpp"
 
 namespace viennautils
 {
@@ -36,13 +36,13 @@ class data_reader
 {
 public:
   typedef std::vector<double> ValueVector;
-  typedef std::vector<viennautils::dfise::grid_reader::VertexIndex> VertexIndexVector;
+  typedef std::vector<viennautils::dfise::grd_bnd_reader::VertexIndex> VertexIndexVector;
 
   //name, dimension, values
   typedef std::map<std::string, std::pair<unsigned int, std::pair<VertexIndexVector, ValueVector> > > PartialDatasetMap;
   typedef std::map<std::string, std::pair<unsigned int, ValueVector> > CompleteDatasetMap;
 
-  data_reader(grid_reader const & greader);
+  data_reader(grd_bnd_reader const & gbreader);
 
   void read(std::string const & filepath);
 
@@ -53,7 +53,7 @@ private:
   struct Dataset;
   typedef std::list<Dataset> DatasetList;
 
-  typedef boost::container::flat_set<grid_reader::VertexIndex> VertexIndexSet;
+  typedef boost::container::flat_set<grd_bnd_reader::VertexIndex> VertexIndexSet;
   typedef boost::container::flat_map<std::string, VertexIndexSet> RegionVertexIndicesMap;
 
   void parse_additional_info(primary_reader & preader, DatasetList & datasets);

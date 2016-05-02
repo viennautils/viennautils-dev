@@ -14,17 +14,24 @@ namespace dfise
 
 class primary_reader;
 
-class grid_reader
+class grd_bnd_reader
 {
 public:
   typedef std::vector<double> VertexVector;
   typedef VertexVector::size_type VertexIndex;
+  
+  enum filetype
+  {
+    filetype_grd,
+    filetype_bnd
+  };
 
   enum element_tag
   {
     element_tag_line = 1,
     element_tag_triangle = 2,
     element_tag_quadrilateral = 3,
+    element_tag_polygon = 4,
     element_tag_tetrahedron = 5
   };
 
@@ -44,18 +51,18 @@ public:
   };
   typedef std::map<std::string, region> RegionMap;
 
-  grid_reader(std::string const & filename);
+  grd_bnd_reader(std::string const & filename);
 
-  unsigned int get_dimension() const {return dimension_;}
-  //actually it is the vertex coordinate vector
-  VertexVector const & get_vertices() const {return vertices_;}
-  ElementVector const & get_elements() const {return elements_;}
-  RegionMap const & get_regions() const {return regions_;}
-  std::vector<double> get_transform() const {return trans_matrix_;}
-  std::vector<double> get_translate() const {return trans_move_;}
+  filetype              get_file_type() const {return filetype_;}
+  unsigned int          get_dimension() const {return dimension_;}
+  VertexVector const &  get_vertices()  const {return vertices_;} //actually it is the vertex coordinate vector
+  ElementVector const & get_elements()  const {return elements_;}
+  RegionMap const &     get_regions()   const {return regions_;}
+  std::vector<double>   get_transform() const {return trans_matrix_;}
+  std::vector<double>   get_translate() const {return trans_move_;}
 
 private:
-  struct GridInfo
+  struct GrdBndInfo
   {
     std::vector<std::string> regions_;
     std::vector<std::string> materials_;
@@ -66,7 +73,7 @@ private:
   typedef EdgeVector::size_type EdgeIndex;
   typedef boost::array<int, 3> Face;
   typedef std::vector<Face> FaceVector;
-  
+
   void parse_additional_info(primary_reader & preader);
   void parse_data_block(primary_reader & preader);
   void parse_coord_system_block(primary_reader & preader);
@@ -87,14 +94,17 @@ private:
   VertexIndex get_oriented_edge_vertex(int edge_index, Edge::size_type vertex_index);
   VertexIndex get_oriented_face_vertex(int face_index, EdgeIndex edge_index, Edge::size_type vertex_index);
 
-  GridInfo grid_info_;
+  //"temporary" data (only used during parsing - in an entire proper design these would not be data members)
+  GrdBndInfo grd_bnd_info_;
   EdgeVector edges_;
   FaceVector faces_;
 
-  unsigned int dimension_;
-  VertexVector vertices_;
-  ElementVector elements_;
-  RegionMap regions_;
+  //"final" data
+  unsigned int        dimension_;
+  filetype            filetype_;
+  VertexVector        vertices_;
+  ElementVector       elements_;
+  RegionMap           regions_;
   std::vector<double> trans_matrix_;
   std::vector<double> trans_move_;
 };

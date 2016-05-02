@@ -44,6 +44,10 @@ void primary_reader::parse_info_block(ParsingFunc const & additional_info_parsin
     {
       mandatory_info_.type_ = filetype_dataset;
     }
+    else if (tmp == "boundary")
+    {
+      mandatory_info_.type_ = filetype_boundary;
+    }
     else
     {
       throw make_exception<parsing_error>("encountered unsupported filetype: " + tmp);

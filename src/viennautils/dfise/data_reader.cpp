@@ -36,26 +36,26 @@ struct data_reader::Dataset
   ValueVector values_;
 };
 
-data_reader::data_reader( grid_reader const & greader
+data_reader::data_reader( grd_bnd_reader const & gbreader
                         )
-                        : dimension_(greader.get_dimension())
-                        , vertex_count_(greader.get_vertices().size()/dimension_)
-                        , element_count_(greader.get_elements().size())
+                        : dimension_(gbreader.get_dimension())
+                        , vertex_count_(gbreader.get_vertices().size()/dimension_)
+                        , element_count_(gbreader.get_elements().size())
 {
   //find and sort all vertices of every region
   //this is actually redundant information, however it will be needed often when reading additional dataset files
-  region_vertex_indices_.reserve(greader.get_regions().size());
-  for (grid_reader::RegionMap::const_iterator region_it = greader.get_regions().begin(); region_it != greader.get_regions().end(); ++region_it)
+  region_vertex_indices_.reserve(gbreader.get_regions().size());
+  for (grd_bnd_reader::RegionMap::const_iterator region_it = gbreader.get_regions().begin(); region_it != gbreader.get_regions().end(); ++region_it)
   {
     VertexIndexSet & region_vertices = region_vertex_indices_[region_it->first];
-    for ( std::vector<grid_reader::ElementIndex>::const_iterator element_it = region_it->second.element_indices_.begin()
+    for ( std::vector<grd_bnd_reader::ElementIndex>::const_iterator element_it = region_it->second.element_indices_.begin()
         ; element_it != region_it->second.element_indices_.end()
         ; ++element_it
         )
     {
       //indices in greader are guaranteed to be valid (not out of bounds)
-      grid_reader::element const & element = greader.get_elements()[*element_it];
-      for ( std::vector<grid_reader::VertexIndex>::const_iterator vertex_it = element.vertex_indices_.begin()
+      grd_bnd_reader::element const & element = gbreader.get_elements()[*element_it];
+      for ( std::vector<grd_bnd_reader::VertexIndex>::const_iterator vertex_it = element.vertex_indices_.begin()
           ; vertex_it != element.vertex_indices_.end()
           ; ++vertex_it
           )
