@@ -2,23 +2,40 @@
 ****          ViennaUtils Readme            ****
 ************************************************
 
-TODO: expand Readme
-
 Table of Contents
 ------------------
-1. Requirements
-2. boost
+1. Introduction
+2. Requirements
+3. boost
+4. Build System
+5. DFISE
 
-1. Requirements
+
+1. Introduction
 -----------------
-ViennaUtils requires
- - a not too dated C++ compiler (e.g. gcc 4.x.x),
- - the C++ Standard Template Library,
+ViennaUtils was introduced to share basic software components that are used across multiple Vienna* projects. In particular, it contains the header-only parts of the boost library (as to avoid the platform specific complications that are associated with the boost build system). It is also a place for components that logically belong to the Vienna* domain of application, but which do not depend on anything more specific within other Vienna* libraries. Finally, it provides a basic, CMake-based build system.
+
+ViennaUtils is self-contained and does not depend on any other libraries.
 
 
-2. boost
+2. Requirements
 -----------------
-The boost directory contains several header only parts of the boost library. It originates from boost 1.57. I downloaded the boost package and used the bcp tool to extract the desired libraries:
+Setup
+ - Vienna* environment variables (see Build System section)
+
+Tools
+ - a non-ancient C++ compiler (e.g. gcc 4.x.x, clang, ...)
+ - CMake 2.6
+
+C++ components within ViennaUtils may only depend on
+- the Standard Template Library
+- the parts of the boost library that are shipped along with ViennaUtils
+- other parts of ViennaUtils
+
+3. boost
+-----------------
+a) Original Setup
+The boost directory contains several header only parts of the boost library. It originates from boost 1.57 and can be recreated by downloading the boost package, using the bcp tool to extract the desired libraries and following the steps below:
 
 ~/boost_1_57_0/mkdir viennautils_subset
 ~/boost_1_57_0/bcp boost/function.hpp boost/bind.hpp boost/ref.hpp boost/lexical_cast.hpp boost/any.hpp boost/type_traits.hpp boost/unordered_map.hpp boost/unordered_set.hpp boost/iterator.hpp boost/shared_container_iterator.hpp boost/limits.hpp boost/utility.hpp boost/array.hpp boost/container/flat_map.hpp boost/container/flat_set.hpp boost/container/deque.hpp boost/optional.hpp boost/variant.hpp boost/static_assert.hpp boost/mpl boost/lambda boost/tuple boost/smart_ptr boost/scoped_array.hpp boost/scoped_ptr_hpp boost/shared_array.hpp boost/shared_ptr.hpp boost/make_shared.hpp boost/weak_ptr boost/algorithm/string.hpp boost/accumulators boost/noncopyable.hpp boost/pointer_cast.hpp boost/preprocessor.hpp boost/swap.hpp viennautils_subset
@@ -41,4 +58,66 @@ we add the three lines:
 #ifdef BOOST_NO_LONG_LONG
 #  undef BOOST_HAS_LONG_LONG
 #endif
+
+b) Caveats and Further Information
+The boost library can be found in the 'override' directory of ViennaUtils. The build system ensures that the override directory will be searched before any system paths, so all libraries placed in override will override other versions of the library that might potentially be found on the system.
+
+One should be aware that this has the potential to create problems if one tries to use ViennaUtils in projects that also use their own version of boost. In such a case one can try to compile ViennaUtils using one's own version of boost.
+
+
+4. Build System
+-----------------
+a) Basics
+ViennaUtils provides a small build system for the Vienna* hierarchy that handles the dependencies that arise within that hierarchy. It ensures that everything is built in the correct order, with the appropriate compiler options (that are set by the master project) and also provides a mechanism to ensure that all prerequisits of subprojects are met and that defines are propagated correctly.
+
+b) Main Include File
+The core of the build system is 'cmake/vienna_build_common.cmake' (which also contains additional, more technical documentation). This file serves as the basic "header" for CMakeLists.txt files of other Vienna* projects. It defines all the macros and functions that give rise to the ViennaUtils build system and every Vienna* project that wants to make use of ViennaUtils' build system has to include this main file at the top of its own CMakeLists.txt using:
+
+include ($ENV{VIENNAUTILSPATH}/cmake/vienna_build_common.cmake NO_POLICY_SCOPE)
+
+where VIENNAUTILSPATH is an environment variable that contains the path to the -dev directory of ViennaUtils.
+
+c) Main Project and Subprojects
+The ViennaUtils build system relies on a well-established Vienna* convention, namely it expects to find environment variables with name <Projectname>PATH for all specified Vienna* projects (such as for example VIENNAUTILSPATH above). These variables have to point to the folder that contains the -dev branch of their associated project.
+
+Instead of using the normal 'project()' CMake-function the ViennaUtils build system provides its own version called
+
+vienna_build_setup_project (mainprojectname [subprojects...])
+
+which has to be called from the main CMakeLists.txt file of the project and that specifies the names of main project (mainprojectname) as well as all required subprojects. For ViennaMesh for example the main project name is 'viennamesh' and the two subprojects are 'viennautils' and 'viennagrid'.
+
+There are two weakness in the current design:
+First, even though ViennaMesh does (at least currently) not use any of ViennaUtils' code directly itself (except for the build system obviously), it still has to specify it as a subproject, because ViennaGrid in turn depends on code in ViennaGrid. So even though subprojects might list additional subprojects themselves, there is no implicit dependency resolution process at this point - every Vienna* project has to specify all the subprojects it ultimately depends on - whether implicitly or explicitly - itself.
+Second (and also connected to the issue of missing dependency resolution), the subprojects must also be listed in the correct order (i.e. subprojects may only depend on other subprojects that are listed before them, but not after), hence 'vienna_build_setup_project(viennamesh viennautils viennagrid)' is fine, while 'vienna_build_setup_project(viennamesh viennagrid viennautils)' is not. So the listing has to follow the levels of the project hierarchy going from fewest to most total dependencies (therefore usually starting with viennautils).
+
+Once vienna_build_setup_project has been invoked, a variable called
+
+VIENNA_BUILD_IS_MAIN_PROJECT
+
+is defined, that specifies whether the current CMakeLists.txt is the main project file or whether it was invoked as a subproject as part of a larger project. The user can then proceed to set compiler flags etc. accordingly (typically just leaving things as they are when the projects only acts as a subproject).
+
+After vienna_build_setup_project() has been invoked and compiler flags, packages, etc. have been specified/found,
+
+vienna_build_add_subprojects()
+
+has to be invoked to actually 'include' all the subprojects. Only after this point can one start defining executables and libraries that refer back to dependencies from any of the subprojects themselves.
+
+d) Flow of Inclusion/Execution
+There are two main points when the ViennaUtils build system becomes active:
+
+First, when vienna_build_setup_project() is invoked:
+At this point, this function starts including and executing the CMake code within the 'prerequisites_and_globals.cmake' files of all subprojects in the specified order. The prerequisites_and_globals file (as the name suggests) should ensure, that all the prerequisits of the project are met (for example that the compiler has the required capabilites (e.g. variadic macro support)). It also provides subprojects the opportunity to specify global defines using the vienna_build_add_definitions() function (for example, ViennaUtils uses vienna_build_add_definitions(-DBOOST_NO_LONG_LONG=1) to disable BOOST LONG LONG support to suppress warnings). Finally, it also provides a custom function called vienna_build_include_directories() to specify the include directories that it (and other projects!) will need to find the C++ library headers.
+
+Second, when vienna_build_add_subprojects() is invoked:
+At this point, the build system will start adding all previously specified subprojects essentially using CMake add_subdirectory(). As already mentioned above, after this point all the libraries and executables defined in any of the subprojects will then be visible in the main project CMakeLists.txt file.
+
+e) Learn more
+Probably the best way to understand more clearly what is going on is to look at either ViennaGrid or ViennaMesh, since they are already relying on the new build system and also having a closer look at the main include file cmake/vienna_build_common.cmake.
+
+
+5. DFISE
+-----------------
+DFISE is a collection of similar legacy file formats of Synopsis that store different types of data relevant to device simulation.
+
+ViennaUtils provides parsers for some of these filetypes - in particular parsers for .grd, .dat and .bnd files. These parsers deal with the file handling, provide error handling and expose the data in a more accessible format through their C++ class interface.
 
